@@ -1,4 +1,4 @@
-name: Build and Test
+name: .NET CI/CD with Test Coverage and Auto Tagging
 
 on:
   pull_request:
@@ -6,13 +6,12 @@ on:
     branches: [main]
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '7.0.x'
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -24,16 +23,17 @@ jobs:
 
       - name: Install dependencies
         run: dotnet restore
+        working-directory: ./Prueba-actions
 
       - name: Run build
         run: dotnet build --configuration Release
+        working-directory: ./Prueba-actions
 
   test:
-    name: Test
+    name: Test and Coverage
     permissions: write-all
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -45,19 +45,22 @@ jobs:
 
       - name: Install Dependencies
         run: dotnet restore
+        working-directory: ./Prueba-actions
 
       - name: Run Build
         run: dotnet build --configuration Release
+        working-directory: ./Prueba-actions
 
       - name: Generate Test Results
         run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFilePrefix=test-results" --results-directory ./coverage
+        working-directory: ./Prueba-actions
 
-      - name: Uploaded Test Results
+      - name: Upload Test Results
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: Uploaded Test Results
-          path: coverage/test-results*
+          path: Prueba-actions/coverage/test-results*
           reporter: dotnet-trx
           path-replace-backslashes: false
           list-suites: all
@@ -68,12 +71,13 @@ jobs:
           only-summary: false
 
       - name: Generate Test Coverage
-        run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage --settings .runsettings
+        run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage --settings ../.runsettings
+        working-directory: ./Prueba-actions
 
       - name: Join Coverage Reports
         uses: danielpalme/ReportGenerator-GitHub-Action@5.3.9
         with:
-          reports: coverage/**/coverage.cobertura.xml
+          reports: Prueba-actions/coverage/**/coverage.cobertura.xml
           targetdir: coverage
           reporttypes: 'Cobertura'
 
@@ -101,28 +105,23 @@ jobs:
         if: always()
         run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
 
-  build_tag:
-    if: github.event_name == 'push'
-    run: |
-      git fetch --tags origin
-      git config --global user.email "${{ github.actor }}@users.noreply.github.com"
-      git config --global user.name "${{ github.actor }}"
-      GIT_TAGS=$(git tag | egrep '^[0-9]+\.[0-9]+(\.[0-9]+)?$' || true)
-      if [ -z "$GIT_TAGS" ]; then
-        LATEST="0.0.0"
-      else
-        LATEST=$(
-          git tag --list |
-          egrep '^[0-9]+\.[0-9]+(\.[0-9]+)?$' |
-          sort -V |
-          tail -n 1
-        )
-      fi
-      if echo $LATEST | egrep '^[0-9]+\.[0-9]+$'; then
-        BUMPED="${LATEST}.0"
-      else
-        BUMPED=$(echo $LATEST | awk -F. '{ print $1 "." $2 "." ($3 + 1) }')
-      fi
-      echo "bumping ${LATEST} to ${BUMPED}"
-      git tag --annotate "$BUMPED" --message "via GitHub Actions"
-      git push origin "$BUMPED"
+      - name: Build Tag
+        if: github.event_name == 'push'
+        run: |
+          git fetch --tags origin
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.name "${{ github.actor }}"
+          GIT_TAGS=$(git tag | egrep '^[0-9]+\.[0-9]+(\.[0-9]+)?$' || true)
+          if [ -z "$GIT_TAGS" ]; then
+            LATEST="0.0.0"
+          else
+            LATEST=$(git tag --list | egrep '^[0-9]+\.[0-9]+(\.[0-9]+)?$' | sort -V | tail -n 1)
+          fi
+          if echo $LATEST | egrep '^[0-9]+\.[0-9]+$'; then
+            BUMPED="${LATEST}.0"
+          else
+            BUMPED=$(echo $LATEST | awk -F. '{ print $1 "." $2 "." ($3 + 1) }')
+          fi
+          echo "bumping ${LATEST} to ${BUMPED}"
+          git tag --annotate "$BUMPED" --message "via GitHub Actions"
+          git push origin "$BUMPED"
