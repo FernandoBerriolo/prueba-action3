@@ -23,7 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: dotnet restore
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
       - name: Run build
         run: dotnet build --configuration Release
