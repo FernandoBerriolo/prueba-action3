@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 env:
-  DOTNET_VERSION: '7.0.x'
+  DOTNET_VERSION: '8.0.x'
 
 jobs:
   build:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Run build
         run: dotnet build --configuration Release
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
   test:
     name: Test and Coverage
@@ -45,22 +45,22 @@ jobs:
 
       - name: Install Dependencies
         run: dotnet restore
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
       - name: Run Build
         run: dotnet build --configuration Release
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
       - name: Generate Test Results
         run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFilePrefix=test-results" --results-directory ./coverage
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
       - name: Upload Test Results
         uses: dorny/test-reporter@v1
         if: always()
         with:
           name: Uploaded Test Results
-          path: Prueba-actions/coverage/test-results*
+          path: TestProject1/coverage/test-results*
           reporter: dotnet-trx
           path-replace-backslashes: false
           list-suites: all
@@ -72,12 +72,12 @@ jobs:
 
       - name: Generate Test Coverage
         run: dotnet test --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage --settings ../.runsettings
-        working-directory: ./Prueba-actions
+        working-directory: ./TestProject1
 
       - name: Join Coverage Reports
         uses: danielpalme/ReportGenerator-GitHub-Action@5.3.9
         with:
-          reports: Prueba-actions/coverage/**/coverage.cobertura.xml
+          reports: TestProject1/coverage/**/coverage.cobertura.xml
           targetdir: coverage
           reporttypes: 'Cobertura'
 
